@@ -17,6 +17,24 @@ createdb eventbooking
 
 ### 2. Configure environment
 
+Copy `.env.example` and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env`:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASS=your_password
+DB_NAME=eventbooking
+```
+
+### 3. Configure environment
+
 Create a `.env` file in the project root:
 
 ```env
@@ -27,7 +45,7 @@ DB_PASS=your_password
 DB_NAME=eventbooking
 ```
 
-### 3. Install and run
+### 4. Install and run
 
 ```bash
 npm install
