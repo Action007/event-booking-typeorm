@@ -20,7 +20,8 @@ import { ReviewsModule } from './reviews/reviews.module';
         database: cfg.get('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true, // dev only
-        logging: ['query', 'error'], // KEEP THIS ON. Watch the SQL.
+        logging: ['query', 'error'],
+        logger: 'simple-console'
       }),
     }),
     EventsModule,

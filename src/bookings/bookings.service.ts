@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, DataSource } from 'typeorm'
-import { Booking } from './entities/booking.entity'
-import { Event } from '../events/entities/event.entity'
-import { User } from '../users/entities/user.entity'
-import { CreateBookingDto } from './dto/create-booking.dto'
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { Booking } from './entities/booking.entity';
+import { Event } from '../events/entities/event.entity';
+import { User } from '../users/entities/user.entity';
+import { CreateBookingDto } from './dto/create-booking.dto';
 
 @Injectable()
 export class BookingsService {
@@ -15,40 +20,63 @@ export class BookingsService {
     private dataSource: DataSource,
   ) {}
 
-  // TODO 3.6 — createBooking with capacity check inside a transaction
-  // Use this.dataSource.transaction(async (manager) => { ... })
-  // Steps:
-  //   1. Find event (throw NotFound if missing)
-  //   2. Sum existing bookings for this event
-  //   3. If bookedSoFar + dto.seats > event.capacity → throw BadRequestException('Sold out')
-  //   4. Create + save booking
-  //   5. Return saved booking
-  // Catch unique constraint violation (err.code === '23505') → throw BadRequestException('Already booked')
-  async create(userId: number, dto: CreateBookingDto) {
-    void userId
-    void dto
-    // implement
+  async create(userId: string, dto: CreateBookingDto) {
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const event = await manager.findOne(Event, {
+          where: { id: dto.eventId },
+        });
+
+        if (!event) throw new NotFoundException('Event not found');
+
+        const { bookedSoFar } = await manager
+          .createQueryBuilder(Booking, 'b')
+          .select('COALESCE(SUM(b.seats), 0)', 'bookedSoFar')
+          .where('b.eventId = :id', { id: dto.eventId })
+          .getRawOne();
+
+        if (Number(bookedSoFar) + dto.seats > event.capacity) {
+          throw new BadRequestException('Sold out');
+        }
+
+        const booking = manager.create(Booking, {
+          seats: dto.seats,
+          totalPrice: dto.totalPrice,
+          user: { id: userId },
+          event: { id: event.id },
+        });
+
+        return manager.save(booking);
+      });
+    } catch (err: any) {
+      if (err.code === '23505') throw new BadRequestException('Already booked');
+      throw err;
+    }
   }
 
-  // TODO 3.7 — cancelBooking
-  // Steps inside transaction:
-  //   1. Find booking with user + event relations
-  //   2. If booking.user.id !== userId → ForbiddenException
-  //   3. If booking.event.date < now → BadRequestException('Event already happened')
-  //   4. Remove booking
-  async cancel(userId: number, bookingId: number) {
-    void userId
-    void bookingId
-    // implement
+  async cancel(userId: string, bookingId: string) {
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const booking = await manager.findOne(Booking, {
+          where: { id: bookingId },
+          relations: ['user', 'event']
+        });
+
+        if (!booking) throw new NotFoundException('Booking not found');
+        if (booking.user.id !== userId)
+          throw new ForbiddenException('Dont have access');
+        if (booking.event.date < new Date())
+          throw new BadRequestException('Event already happened');
+
+        return await manager.remove(booking);
+      });
+    } catch (err: any) {
+      if (err.code === '23505') throw new BadRequestException();
+      throw err;
+    }
   }
 
-  // TODO 3.8 — transfer ownership
-  // Verify booking belongs to fromUserId, verify toUserId exists, change owner.
-  // Watch out for unique constraint — toUserId might already have a booking for this event.
   async transfer(bookingId: number, fromUserId: number, toUserId: number) {
-    void bookingId
-    void fromUserId
-    void toUserId
-    // implement
+    
   }
 }

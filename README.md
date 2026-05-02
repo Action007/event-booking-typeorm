@@ -1,98 +1,124 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Event Booking System
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS + TypeORM practice project covering the core ORM patterns you'll use in production: relation loading, QueryBuilder, transactions, soft deletes, and the N+1 problem.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Setup
 
-## Description
+### Prerequisites
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Node.js 18+
+- PostgreSQL running locally
 
-## Project setup
+### 1. Create the database
 
 ```bash
-$ npm install
+createdb eventbooking
 ```
 
-## Compile and run the project
+### 2. Configure environment
+
+Create a `.env` file in the project root:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASS=your_password
+DB_NAME=eventbooking
+```
+
+### 3. Install and run
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
+npm run start:dev
 ```
 
-## Run tests
+TypeORM will auto-sync the schema on first boot (`synchronize: true`). SQL queries are logged to the console so you can observe what the ORM generates.
+
+---
+
+## Endpoints
+
+### Events
 
 ```bash
-# unit tests
-$ npm run test
+# List all events with bookings and users
+curl http://localhost:3000/events
 
-# e2e tests
-$ npm run test:e2e
+# Get one event with its bookings and attendees
+curl http://localhost:3000/events/<event-uuid>
 
-# test coverage
-$ npm run test:cov
+# Events with seats still available
+curl http://localhost:3000/events/available
+
+# Events with average rating above a threshold
+curl "http://localhost:3000/events/top-rated?min=4"
+
+# Search by title and date range
+curl "http://localhost:3000/events/search?q=concert&from=2025-01-01&to=2025-12-31"
+
+# Paginated event list (0-indexed pages)
+curl "http://localhost:3000/events/paginated?page=0&size=10"
+
+# Create an event
+curl -X POST http://localhost:3000/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Jazz Night",
+    "description": "Live jazz at the downtown venue",
+    "date": "2025-09-15T20:00:00.000Z",
+    "capacity": 200,
+    "price": 45,
+    "categoryId": 1,
+    "tagIds": [1, 2]
+  }'
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Bookings
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Create a booking (capacity check runs inside a transaction)
+curl -X POST http://localhost:3000/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "eventId": "<event-uuid>",
+    "seats": 2,
+    "totalPrice": 90
+  }'
+
+# Cancel a booking
+curl -X DELETE http://localhost:3000/bookings/<booking-uuid>
+
+# Transfer a booking to another user
+curl -X POST http://localhost:3000/bookings/<booking-id>/transfer/<to-user-id>
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Users
 
-## Resources
+```bash
+# Top 5 users by total bookings
+curl http://localhost:3000/users/top-bookers
 
-Check out a few resources that may come in handy when working with NestJS:
+# All bookings for a specific user
+curl http://localhost:3000/users/<user-uuid>/bookings
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## Key Concepts
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Relation Loading
+`find()` with the `relations` option eagerly loads associated entities in a single JOIN query. Nested relations like `bookings.user` traverse two levels in one shot.
 
-## Stay in touch
+### N+1 Problem
+`GET /events` has both a `badEventList` and `goodEventList` implementation. The bad version fires one query per event to fetch its bookings. The good version loads everything in one query. Watch the SQL logs to see the difference.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### QueryBuilder
+Used for aggregations that `find()` can't express: `AVG`, `COUNT`, `GROUP BY`, `HAVING`, `ILIKE`, `BETWEEN`, and `COALESCE`. See `EventsService` and `UsersService`.
 
-## License
+### Transactions
+Booking creation and cancellation both run inside `dataSource.transaction()` to guarantee atomicity — the capacity check and the insert happen together or not at all. PostgreSQL unique-constraint violations (`err.code === '23505'`) are caught and converted to readable 400 errors.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Soft Delete
+The `Event` entity has a `@DeleteDateColumn()` field (`deletedAt`). TypeORM automatically filters soft-deleted rows from all queries and sets the timestamp instead of issuing a `DELETE`.

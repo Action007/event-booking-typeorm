@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
-import { User } from './entities/user.entity'
-import { Booking } from '../bookings/entities/booking.entity'
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './entities/user.entity';
+import { Booking } from '../bookings/entities/booking.entity';
 
 @Injectable()
 export class UsersService {
@@ -11,14 +11,23 @@ export class UsersService {
     @InjectRepository(Booking) private bookings: Repository<Booking>,
   ) {}
 
-  // TODO 2.5 — bookings for a user, with event details loaded
-  async bookingsForUser(userId: number) {
-    void userId
-    // implement
+  async bookingsForUser(userId: string) {
+    return await this.bookings.find({
+      relations: ['event'],
+      where: { user: { id: userId } },
+    });
   }
 
-  // TODO 3.5 — top 5 users by booking count (QueryBuilder, COUNT, GROUP BY)
   async topBookers() {
-    // implement
+    return await this.users
+      .createQueryBuilder('u')
+      .select('u.name', 'name')
+      .addSelect('u.email', 'email')
+      .addSelect('COUNT(b.id)', 'bookingCount')
+      .leftJoin('u.bookings', 'b')
+      .groupBy('u.id, u.name, u.email')
+      .orderBy('COUNT(b.id)', 'DESC')
+      .limit(5)
+      .getRawMany();
   }
 }

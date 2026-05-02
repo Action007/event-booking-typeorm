@@ -1,12 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, DataSource } from 'typeorm'
-import { Event } from './entities/event.entity'
-import { Category } from './entities/category.entity'
-import { Tag } from './entities/tag.entity'
-import { Booking } from '../bookings/entities/booking.entity'
-import { Review } from '../reviews/entities/review.entity'
-import { CreateEventDto } from './dto/create-event.dto'
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { Event } from './entities/event.entity';
+import { Category } from './entities/category.entity';
+import { Tag } from './entities/tag.entity';
+import { Booking } from '../bookings/entities/booking.entity';
+import { Review } from '../reviews/entities/review.entity';
+import { CreateEventDto } from './dto/create-event.dto';
 
 @Injectable()
 export class EventsService {
@@ -19,62 +22,85 @@ export class EventsService {
     private dataSource: DataSource,
   ) {}
 
-  // TODO 2.1
   async findAllWithCategoryAndTags() {
-    // events + category + tags loaded. Use this.events.find({ relations: [...] })
+    const events = await this.events.find({ relations: ['tags', 'category'] });
+    return events;
   }
 
-  // TODO 2.2
-  async findOneWithBookingsAndUsers(id: number) {
-    void id
-    // event + bookings + each booking's user (nested, 2 levels)
-    // throw NotFoundException if not found
-  }
+  async findOneWithBookingsAndUsers(id: string) {
+    const event = await this.events.findOne({
+      relations: ['bookings', 'bookings.user'],
+      where: { id },
+    });
 
-  // TODO 2.3 — N+1 demonstration (write the BAD version first)
-  async badEventList() {
-    const events = await this.events.find()
-    for (const event of events) {
-      const bookings = await this.bookings.find({ where: { event: { id: event.id } } })
-      console.log(`${event.title} has ${bookings.length} bookings`)
+    if (!event) {
+      throw new NotFoundException('Event not found');
     }
-    // RUN THIS ENDPOINT and count queries in the logs
+
+    return event;
   }
 
-  // TODO 2.4 — fix it. Same output, ONE query.
+  // issues 1+N queries: one for all events, then one per event for bookings
+  async badEventList() {
+    const events = await this.events.find();
+    for (const event of events) {
+      const bookings = await this.bookings.find({
+        where: { event: { id: event.id } },
+      });
+      console.log(`${event.title} has ${bookings.length} bookings`);
+    }
+
+    return events;
+  }
+
   async goodEventList() {
-    // load events with bookings in one query
+    const events = await this.events.find({ relations: ['bookings.user'] });
+    return events;
   }
 
-  // ----- Part 3 methods below -----
   async findHighRated(min: number) {
-    void min
-    /* TODO 3.1 */
+    return this.events
+      .createQueryBuilder('e')
+      .select('e.title', 'title')
+      .addSelect('AVG(r.rating)', 'avgRating')
+      .leftJoin('e.reviews', 'r')
+      .groupBy('e.id, e.title')
+      .having('AVG(r.rating) > :min', { min })
+      .getRawMany();
   }
 
   async findAvailable() {
-    /* TODO 3.2 */
+    return this.events
+      .createQueryBuilder('e')
+      .select('e.title', 'title')
+      .addSelect('e.capacity', 'capacity')
+      .leftJoin('e.bookings', 'b')
+      .groupBy('e.id, e.title, e.capacity')
+      .having('e.capacity - COALESCE(SUM(b.seats), 0) > 0')
+      .getRawMany();
   }
 
   async search(q: string, from: Date, to: Date) {
-    void q
-    void from
-    void to
-    /* TODO 3.3 */
+    return this.events
+      .createQueryBuilder('e')
+      .select('e.title', 'title')
+      .addSelect('e.date', 'date')
+      .where('e.title ILIKE :q', { q: `%${q}%` })
+      .andWhere('e.date BETWEEN :from AND :to', { from, to })
+      .getRawMany();
   }
 
   async paginate(page: number, size: number) {
-    void page
-    void size
-    /* TODO 3.4 */
+    const [items, total] = await this.events
+      .createQueryBuilder('e')
+      .orderBy('e.date', 'DESC')
+      .skip(page * size)
+      .take(size)
+      .getManyAndCount();
+
+    return { items, total, page, size };
   }
 
-  // ----- create + transactions go below -----
   async create(dto: CreateEventDto) {
-    void dto
-    // Find category, throw if missing
-    // Find tags by id (this.tags.findBy({ id: In(dto.tagIds) }))
-    // Create event with category + tags attached
-    // Save and return with relations populated
   }
 }

@@ -11,7 +11,7 @@ export class UsersController {
   }
 
   @Get(':id/bookings')
-  myBookings(@Param('id', ParseIntPipe) id: number) {
+  myBookings(@Param('id') id: string) {
     return this.users.bookingsForUser(id)
   }
 }

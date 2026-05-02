@@ -8,13 +8,12 @@ export class BookingsController {
 
   @Post()
   create(@Body() dto: CreateBookingDto) {
-    // hardcode userId=1 for now — auth is out of scope for this exercise
-    return this.bookings.create(1, dto)
+    return this.bookings.create("f2e948c5-099b-463d-a054-3583dec2f640", dto)
   }
 
   @Delete(':id')
-  cancel(@Param('id', ParseIntPipe) id: number) {
-    return this.bookings.cancel(1, id)
+  cancel(@Param('id', ParseIntPipe) id: string) {
+    return this.bookings.cancel("f8f53a39-5ac7-45c5-9a09-d0acc2a20a75", id)
   }
 
   @Post(':id/transfer/:toUserId')

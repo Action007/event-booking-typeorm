@@ -8,7 +8,7 @@ export class EventsController {
 
   @Get()
   findAll() {
-    return this.events.findAllWithCategoryAndTags()
+    return this.events.goodEventList()
   }
 
   @Get('available')
@@ -39,7 +39,7 @@ export class EventsController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id') id: string) {
     return this.events.findOneWithBookingsAndUsers(id)
   }
 
